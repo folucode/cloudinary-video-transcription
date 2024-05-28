@@ -19,8 +19,6 @@ export default function Transcribe() {
   const videoUrl: string = `https://res.cloudinary.com/${cloud_name}/video/upload/v${version}/${public_id}.${format}`;
   const subtitleFile: string = `https://res.cloudinary.com/${cloud_name}/raw/upload/v${version}/${public_id}.vtt`;
 
-  console.log(videoUrl);
-
   return (
     <main className={styles.main}>
       <video
