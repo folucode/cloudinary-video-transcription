@@ -4,12 +4,11 @@
   justify-content: space-evenly;
   align-items: center;
   padding: 6rem;
-  min-height: 100vh;
+  height: 100vh;
 }
 
 .main form {
   background-color: white;
-  height: 150px;
   width: 400px;
   border-radius: 5px;
   padding: 10px;
@@ -42,4 +41,29 @@
 .main form button:hover {
   cursor: pointer;
   background-color: rgb(85, 82, 82);
+}
+
+.video-transcription-section {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-evenly;
+  align-items: center;
+  padding: 3rem;
+  width: 100vw;
+  height: 350px;
+}
+
+.video-transcription-section video {
+  height: inherit;
+  border-radius: 5px;
+  border: #ccc solid 1px;
+}
+
+.transcription {
+  border-radius: 5px;
+  border: #ccc solid 1px;
+  height: inherit;
+  width: 500px;
+  padding: 5px;
+  color: lightgreen;
 }

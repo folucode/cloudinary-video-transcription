@@ -1,45 +1,65 @@
 import { UploadApiResponse } from 'cloudinary';
 import styles from './page.module.css';
 import cloudinary from '@/lib/cloudinary';
-import { redirect } from 'next/navigation';
+import { TranscriptData } from '@/types/transcript-data.type';
 
-export default function Home() {
-  async function uploadVideo(formData: FormData) {
-    'use server';
+let videoUrl: string = '';
+let transcriptionFileUrl: string = '';
+let format: string = '';
 
-    const file = formData.get('video_file') as File;
+let transcript: string = '';
 
-    const buffer: Buffer = Buffer.from(await file.arrayBuffer());
+const getVideoTranscription = async (file: string): Promise<string> => {
+  const res: Response = await fetch(file);
 
-    const public_id: string = `videos/${Date.now()}`;
-    let version: number = 0;
-    let format: string = '';
-
-    try {
-      const base64Image: string = `data:${file.type};base64,${buffer.toString(
-        'base64'
-      )}`;
-
-      const uploadResult: UploadApiResponse = await cloudinary.uploader.upload(
-        base64Image,
-        {
-          resource_type: 'video',
-          public_id,
-          raw_convert: 'google_speech:srt:vtt',
-        }
-      );
-
-      version = uploadResult.version;
-      format = uploadResult.format;
-    } catch (error: any) {
-      console.error(error);
-    }
-
-    redirect(
-      `transcribe?public_id=${public_id}&format=${format}&version=${version}`
-    );
+  if (!res.ok) {
+    throw new Error('Failed to fetch data');
   }
+  let transcript: string = '';
 
+  const lines: TranscriptData[] = await res.json();
+
+  lines.forEach(
+    (line: TranscriptData) => (transcript = transcript + ` ${line.transcript}`)
+  );
+
+  return transcript;
+};
+
+async function uploadVideo(formData: FormData) {
+  'use server';
+
+  const file = formData.get('video_file') as File;
+
+  const buffer: Buffer = Buffer.from(await file.arrayBuffer());
+
+  const cloud_name: string | undefined = process.env.CLOUDINARY_CLOUD_NAME;
+
+  try {
+    const base64Image: string = `data:${file.type};base64,${buffer.toString(
+      'base64'
+    )}`;
+
+    const uploadResult: UploadApiResponse = await cloudinary.uploader.upload(
+      base64Image,
+      {
+        resource_type: 'video',
+        public_id: `videos/${Date.now()}`,
+        raw_convert: 'google_speech:srt:vtt',
+      }
+    );
+
+    videoUrl = `https://res.cloudinary.com/${cloud_name}/video/upload/v${uploadResult.version}/${uploadResult.public_id}.${uploadResult.format}`;
+
+    transcriptionFileUrl = `https://res.cloudinary.com/${cloud_name}/raw/upload/v${uploadResult.version}/${uploadResult.public_id}.transcript`;
+
+    transcript = await getVideoTranscription(transcriptionFileUrl);
+  } catch (error: any) {
+    console.error(error);
+  }
+}
+
+export default async function Home() {
   return (
     <main className={styles.main}>
       <form action={uploadVideo}>
@@ -47,6 +67,14 @@ export default function Home() {
         <input type='file' name='video_file' accept='video/*' required />
         <button type='submit'>Upload</button>
       </form>
+      <div className={styles['video-transcription-section']}>
+        <video crossOrigin='anonymous' controls muted poster=''>
+          <source id='mp4' src={videoUrl} type={`video/${format}`} />
+        </video>
+        <div className={styles.transcription}>
+          <p>{transcript}</p>
+        </div>
+      </div>
     </main>
   );
 }
