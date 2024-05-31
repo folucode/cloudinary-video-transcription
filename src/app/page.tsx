@@ -45,7 +45,7 @@ async function uploadVideo(formData: FormData) {
       {
         resource_type: 'video',
         public_id: `videos/${Date.now()}`,
-        raw_convert: 'google_speech:srt:vtt',
+        raw_convert: 'google_speech',
       }
     );
 
