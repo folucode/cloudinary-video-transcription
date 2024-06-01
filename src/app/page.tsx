@@ -1,80 +1,81 @@
-import { UploadApiResponse } from 'cloudinary';
+'use client';
+
+import { useState } from 'react';
 import styles from './page.module.css';
-import cloudinary from '@/lib/cloudinary';
-import { TranscriptData } from '@/types/transcript-data.type';
 
-let videoUrl: string = '';
-let transcriptionFileUrl: string = '';
-let format: string = '';
+const POLLING_INTERVAL = 5000;
 
-let transcript: string = '';
+export default function Home() {
+  const [videoUrl, setVideoUrl] = useState<string>('');
+  const [transcript, setTranscript] = useState<string>('');
+  const [isUploading, setIsUploading] = useState<boolean>(false);
 
-const getVideoTranscription = async (file: string): Promise<string> => {
-  const res: Response = await fetch(file);
+  const checkTranscriptionStatus = async (url: string) => {
+    try {
+      const response = await fetch(
+        `/api/transcript?url=${encodeURIComponent(url)}`
+      );
+      const data = await response.json();
 
-  if (!res.ok) {
-    throw new Error('Failed to fetch data');
-  }
-  let transcript: string = '';
-
-  const lines: TranscriptData[] = await res.json();
-
-  lines.forEach(
-    (line: TranscriptData) => (transcript = transcript + ` ${line.transcript}`)
-  );
-
-  return transcript;
-};
-
-async function uploadVideo(formData: FormData) {
-  'use server';
-
-  const file = formData.get('video_file') as File;
-
-  const buffer: Buffer = Buffer.from(await file.arrayBuffer());
-
-  const cloud_name: string | undefined = process.env.CLOUDINARY_CLOUD_NAME;
-
-  try {
-    const base64Image: string = `data:${file.type};base64,${buffer.toString(
-      'base64'
-    )}`;
-
-    const uploadResult: UploadApiResponse = await cloudinary.uploader.upload(
-      base64Image,
-      {
-        resource_type: 'video',
-        public_id: `videos/${Date.now()}`,
-        raw_convert: 'google_speech',
+      if (data.available) {
+        setTranscript(data.transcript);
+      } else {
+        setTimeout(() => checkTranscriptionStatus(url), POLLING_INTERVAL);
       }
-    );
+    } catch (error: any) {
+      console.error('Error checking transcription status:', error);
+    }
+  };
 
-    videoUrl = `https://res.cloudinary.com/${cloud_name}/video/upload/v${uploadResult.version}/${uploadResult.public_id}.${uploadResult.format}`;
+  const uploadVideo = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setIsUploading(true);
 
-    transcriptionFileUrl = `https://res.cloudinary.com/${cloud_name}/raw/upload/v${uploadResult.version}/${uploadResult.public_id}.transcript`;
+    const formData = new FormData(event.currentTarget);
 
-    transcript = await getVideoTranscription(transcriptionFileUrl);
-  } catch (error: any) {
-    console.error(error);
-  }
-}
+    try {
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
 
-export default async function Home() {
+      if (!response.ok) {
+        throw new Error('Failed to upload video');
+      }
+
+      const data = await response.json();
+      setVideoUrl(data.videoUrl);
+      setTranscript('');
+
+      checkTranscriptionStatus(data.transcriptionFileUrl);
+    } catch (error: any) {
+      console.error(error);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   return (
     <main className={styles.main}>
-      <form action={uploadVideo}>
+      <form onSubmit={uploadVideo}>
         <label htmlFor='video_file'>Video file:</label>
         <input type='file' name='video_file' accept='video/*' required />
-        <button type='submit'>Upload</button>
+        <button type='submit' disabled={isUploading}>
+          {isUploading ? 'Uploading video...' : 'Upload'}
+        </button>
       </form>
-      <div className={styles['video-transcription-section']}>
-        <video crossOrigin='anonymous' controls muted poster=''>
-          <source id='mp4' src={videoUrl} type={`video/${format}`} />
-        </video>
-        <div className={styles.transcription}>
-          <p>{transcript}</p>
+      {videoUrl && (
+        <div className={styles['video-transcription-section']}>
+          <video crossOrigin='anonymous' controls muted>
+            <source src={videoUrl} type='video/mp4' />
+          </video>
+          <div className={styles.transcription}>
+            <p>
+              {transcript ? transcript : 'Transcription is being processed...'}
+            </p>
+          </div>
         </div>
-      </div>
+      )}
     </main>
   );
 }
