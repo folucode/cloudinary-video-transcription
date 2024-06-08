@@ -23,7 +23,7 @@ export async function POST(req: Request, res: NextResponse) {
       }
     );
 
-    const videoUrl = `https://res.cloudinary.com/${cloud_name}/video/upload/v${uploadResult.version}/${uploadResult.public_id}.${uploadResult.format}`;
+    const videoUrl = uploadResult.secure_url;
     const transcriptionFileUrl = `https://res.cloudinary.com/${cloud_name}/raw/upload/v${
       uploadResult.version + 1
     }/${uploadResult.public_id}.transcript`;
